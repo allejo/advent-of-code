@@ -26,7 +26,7 @@ console.log('Part 1:', part1(input));
 
 String.prototype.diff = function(a) {
     let pos = [], diff = this.split('').filter((v, i) => {
-        return (v !== a.split('')[i]) ? pos.push(i) : 0;
+        return (v !== a[i]) ? pos.push(i) : 0;
     });
 
     return { pos, diff };
