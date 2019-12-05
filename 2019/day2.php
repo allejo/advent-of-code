@@ -21,8 +21,6 @@ function executeInstruction(int $start, array &$instructions): bool {
     $value2 = $instructions[$instructions[$start + 2]];
     $target = $instructions[$start + 3];
 
-    $result = 0;
-
     switch ($operation) {
         case "1":
             $result = $value1 + $value2;
@@ -33,7 +31,7 @@ function executeInstruction(int $start, array &$instructions): bool {
             break;
         
         default:
-            throw InvalidArgumentException('Invalid opcode');
+            throw new InvalidArgumentException('Invalid opcode');
     }
 
     $instructions[$target] = $result;
