@@ -23,7 +23,7 @@ function getValue(array &$instructions, int $position, int $mode): int {
     return $instructions[$instructions[$position]];
 }
 
-function executeInstruction(int $start, array &$instructions): int {
+function executeInstruction(int $start, array &$instructions, ?int &$pointer): int {
     $operation = (string)$instructions[$start];
 
     if ($operation == 99) {
@@ -63,22 +63,44 @@ function executeInstruction(int $start, array &$instructions): int {
         printf("%d\n", $value);
 
         return 2;
+    } elseif ($operation == 5 || $operation == 6) {
+        $arg1 = getValue($instructions, $start + 1, $modeBits[0] ?? 0);
+        $arg2 = getValue($instructions, $start + 2, $modeBits[1] ?? 0);
+
+        if (($operation == 5 && $arg1 != 0) || ($operation == 6 && $arg1 == 0)) {
+            $pointer = $arg2;
+            return 0;
+        }
+
+        return 3;
+    } elseif ($operation == 7 || $operation == 8) {
+        $arg1 = getValue($instructions, $start + 1, $modeBits[0] ?? 0);
+        $arg2 = getValue($instructions, $start + 2, $modeBits[1] ?? 0);
+        $pos = getValue($instructions, $start + 3, $modeBits[2] ?? 1);
+
+        if ($operation == 7) {
+            $instructions[$pos] = (int)($arg1 < $arg2);
+        } else {
+            $instructions[$pos] = (int)($arg1 == $arg2);
+        }
+
+        return 4;
     }
 
-    throw new \Error('Invalid opcode');
+    throw new \Error("Invalid opcode $operation");
 }
 
 function executeProgram(array &$instructions) {
     $offset = 0;
 
     while(true) {
-        $offset += executeInstruction($offset, $instructions);
+        $offset += executeInstruction($offset, $instructions, $offset);
     }
 }
 
-function part1() {
+function part2() {
     $opCodes = getOpCodes();
     executeProgram($opCodes);
 }
 
-part1();
+part2();
