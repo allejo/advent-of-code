@@ -4,6 +4,10 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+class ProgramEnd extends Exception {}
+class ProgramPaused extends Exception {}
+class InvalidOpCode extends Exception {}
+
 /**
  * @param $array
  *
@@ -38,7 +42,7 @@ function computePermutations($array) {
 
 $GLOBAL_INPUT = null;
 
-function askUserInput(): int {
+function askUserInput(): ?int {
     global $GLOBAL_INPUT;
 
     if ($GLOBAL_INPUT !== null) {
@@ -61,7 +65,7 @@ function executeInstruction(int $start, array &$instructions, ?int &$pointer, ?i
     $operation = (string)$instructions[$start];
 
     if ($operation == 99) {
-        throw new RuntimeException();
+        throw new ProgramEnd();
     }
 
     $insLen = strlen($operation);
@@ -88,6 +92,11 @@ function executeInstruction(int $start, array &$instructions, ?int &$pointer, ?i
         return 4;
     } elseif ($operation == 3) {
         $input = askUserInput();
+
+        if ($input === null) {
+            throw new ProgramPaused('', $start);
+        }
+
         $value = getValue($instructions, $start + 1, $modeBits[0] ?? 1);
         $instructions[$value] = $input;
 
@@ -123,17 +132,25 @@ function executeInstruction(int $start, array &$instructions, ?int &$pointer, ?i
         return 4;
     }
 
-    throw new InvalidArgumentException("Invalid opcode $operation");
+    throw new InvalidOpCode("Invalid opcode $operation");
 }
 
-function executeProgram(array &$instructions): int {
+function executeProgram(array &$instructions, bool $throwOnEnd = false, int $start = 0, ?int &$pointer = null): int {
     $result = -9999;
-    $offset = 0;
+    $offset = $start;
 
     while(true) {
         try {
             $offset += executeInstruction($offset, $instructions, $offset, $result);
-        } catch (RuntimeException $e) {
+        } catch (ProgramEnd | ProgramPaused $e) {
+            if ($e instanceof ProgramPaused) {
+                $pointer = $e->getCode();
+            }
+
+            if ($throwOnEnd && $e instanceof ProgramEnd) {
+                throw new ProgramEnd('', $result);
+            }
+
             break;
         }
     }
@@ -177,4 +194,56 @@ function part1() {
     printf("Part 1 Answer: ( %d ) Seq: %s\n", $maxTotal, $maxID);
 }
 
-part1();
+//part1();
+
+function part2() {
+    global $GLOBAL_INPUT, $raw;
+
+    $amps = [5, 6, 7, 8, 9];
+    $permutations = computePermutations($amps);
+    $units = [];
+    $pointers = [];
+
+    $maxTotal = -9999;
+    $maxID = '';
+
+    foreach ($permutations as $phaseSettings) {
+        $prevOutput = 0;
+
+        // Persist our amplifier's state between runs
+        foreach ($phaseSettings as $i => $phaseSetting) {
+            $GLOBAL_INPUT = [$phaseSetting, $prevOutput];
+
+            $units[$i] = explode(',', $raw);
+            $prevOutput = executeProgram($units[$i], false, 0, $pointers[$i]);
+        }
+
+        while (true) {
+            $done = false;
+
+            foreach ($units as $i => &$unit) {
+                $GLOBAL_INPUT = [$prevOutput];
+
+                try {
+                    $prevOutput = executeProgram($unit, true, $pointers[$i], $pointers[$i]);
+                } catch (ProgramEnd $e) {
+                    $prevOutput = $e->getCode();
+                    $done = true;
+                }
+            }
+
+            if ($done) {
+                break;
+            }
+        }
+
+        if ($prevOutput > $maxTotal) {
+            $maxTotal = $prevOutput;
+            $maxID = implode('', $phaseSettings);
+        }
+    }
+
+    printf("Part 2 Answer: ( %d ) Seq: %s\n", $maxTotal, $maxID);
+}
+
+part2();
